@@ -1,3 +1,7 @@
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 from network.AEI_Net import *
 from network.MultiscaleDiscriminator import *
 from utils.Dataset import FaceEmbed, With_Identity
@@ -73,7 +77,7 @@ if __name__ == '__main__':
     # else:
         # dataset = With_Identity('../washed_img/', 0.8)
     # dataset = FaceEmbed(['../celeb-aligned-256_0.85/', '../ffhq_256_0.85/', '../vgg_256_0.85/', '../stars_256_0.85/'], same_prob=0.8)
-    
+
     dataset = FaceEmbed(['D:/git_project/FaceShifter-pytorch/Asian-2020-09-06/'], same_prob=0.8)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, drop_last=True)
 
