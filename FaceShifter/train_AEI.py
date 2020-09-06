@@ -37,7 +37,7 @@ def make_image(Xs, Xt, Y):
 
 if __name__ == '__main__':
     # vis = visdom.Visdom(server='127.0.0.1', env='faceshifter', port=8099)
-    batch_size = 1
+    batch_size = 12
     lr_G = 4e-4
     lr_D = 4e-4
     max_epoch = 2000
@@ -78,7 +78,7 @@ if __name__ == '__main__':
         # dataset = With_Identity('../washed_img/', 0.8)
     # dataset = FaceEmbed(['../celeb-aligned-256_0.85/', '../ffhq_256_0.85/', '../vgg_256_0.85/', '../stars_256_0.85/'], same_prob=0.8)
 
-    dataset = FaceEmbed(['D:/git_project/FaceShifter-pytorch/Asian-2020-09-06/'], same_prob=0.8)
+    dataset = FaceEmbed(['./train_datasets/Foreign-2020-09-06/'], same_prob=0.8)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, drop_last=True)
 
 
@@ -164,3 +164,5 @@ if __name__ == '__main__':
             if iteration % 1000 == 0:
                 torch.save(G.state_dict(), './saved_models/G_latest.pth')
                 torch.save(D.state_dict(), './saved_models/D_latest.pth')
+        torch.save(G.state_dict(), './saved_models/G_epoch_{}.pth'.format(epoch))
+        torch.save(D.state_dict(), './saved_models/D_epoch_{}.pth'.format(epoch))
