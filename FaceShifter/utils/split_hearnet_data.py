@@ -15,7 +15,7 @@ import os
 import shutil
 
 
-output_path = '../../hearnet_data/'
+output_path = '../hearnet_data/'
 os.makedirs(output_path, exist_ok=True)
 
 batch_size = 32
@@ -28,14 +28,16 @@ G = G.cuda()
 
 arcface = Backbone(50, 0.6, 'ir_se').to(device)
 arcface.eval()
-arcface.load_state_dict(torch.load('../face_modules/model_ir_se50.pth', map_location=device), strict=False)
+arcface.load_state_dict(torch.load('../id_model/model_ir_se50.pth', map_location=device), strict=False)
 
 test_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
 
-data_roots = ['../../celeb-aligned-256_0.85/', '../../ffhq_256_0.85/', '../../vgg_256_0.85/', '../../stars_256_0.85/']
+# data_roots = ['../../celeb-aligned-256_0.85/', '../../ffhq_256_0.85/', '../../vgg_256_0.85/', '../../stars_256_0.85/']
+
+data_roots = ['../Asian_datasets/seeprettyface_race_yellow/']
 
 all_lists = []
 for data_root in data_roots:
@@ -48,7 +50,7 @@ G = G.half()
 with torch.no_grad():
     for idx in range(0, len(all_lists)-batch_size, batch_size):
         st = time.time()
-        
+
         Xl = []
         for i in range(batch_size):
             img_path = all_lists[idx + i]
@@ -80,7 +82,9 @@ with torch.no_grad():
     ind = 0
     print('copying files...')
     for img_path, _ in scores:
-        shutil.copyfile(img_path, output_path+'/%08d.jpg' % ind)
+        loc_time = time.localtime()
+        str_time = time.strftime("%Y-%m-%d_%H-%M-%S", loc_time)
+        shutil.copyfile(img_path, output_path+'/{}_{:8d}.jpg'.format(str_time,ind))
         ind += 1
         # test bug
         # img = cv2.imread(img_path)[:, :, ::-1]
