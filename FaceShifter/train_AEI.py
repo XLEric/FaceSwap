@@ -15,6 +15,7 @@ import torchvision
 import cv2
 from apex import amp
 import visdom
+import numpy as np
 
 def hinge_loss(X, positive=True):
     if positive:
@@ -44,7 +45,7 @@ if __name__ == '__main__':
     show_step = 10
     save_epoch = 1
     model_save_path = './saved_models/'
-    optim_level = 'O1'
+    optim_level = 'O0'
 
     # fine_tune_with_identity = False
 
@@ -78,8 +79,8 @@ if __name__ == '__main__':
         # dataset = With_Identity('../washed_img/', 0.8)
     # dataset = FaceEmbed(['../celeb-aligned-256_0.85/', '../ffhq_256_0.85/', '../vgg_256_0.85/', '../stars_256_0.85/'], same_prob=0.8)
 
-    dataset = FaceEmbed(['./train_datasets/Foreign-2020-09-06/'], same_prob=0.8)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, drop_last=True)
+    dataset = FaceEmbed(['./train_datasets/Foreign-2020-09-06/'], same_prob=0.35)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=True)
 
 
     MSE = torch.nn.MSELoss()
@@ -124,7 +125,7 @@ if __name__ == '__main__':
 
             L_rec = torch.sum(0.5 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
 
-            lossG = 1*L_adv + 10*L_attr + 5*L_id + 10*L_rec
+            lossG = 1.*L_adv + 10.*L_attr + 16.*L_id + 10.*L_rec
             # lossG = 1*L_adv + 10*L_attr + 5*L_id + 10*L_rec
             with amp.scale_loss(lossG, opt_G) as scaled_loss:
                 scaled_loss.backward()
@@ -157,11 +158,11 @@ if __name__ == '__main__':
             if iteration % show_step == 0:
                 image = make_image(Xs, Xt, Y)
                 # vis.image(image[::-1, :, :], opts={'title': 'result'}, win='result')
-                cv2.imwrite('./gen_images/latest.jpg', image.transpose([1,2,0]))
+                cv2.imwrite('./gen_images/latest.jpg', (image*255).transpose([1,2,0]).astype(np.uint8))
             print(f'epoch: {epoch}    {iteration} / {len(dataloader)}')
             print(f'lossD: {lossD.item()}    lossG: {lossG.item()} batch_time: {batch_time}s')
             print(f'L_adv: {L_adv.item()} L_id: {L_id.item()} L_attr: {L_attr.item()} L_rec: {L_rec.item()}')
-            if iteration % 1000 == 0:
+            if iteration % 1000 == 0 and iteration>0:
                 torch.save(G.state_dict(), './saved_models/G_latest.pth')
                 torch.save(D.state_dict(), './saved_models/D_latest.pth')
         torch.save(G.state_dict(), './saved_models/G_epoch_{}.pth'.format(epoch))
