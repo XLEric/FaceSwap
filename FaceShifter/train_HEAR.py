@@ -1,3 +1,7 @@
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 from network.AEI_Net import *
 from network.HEAR_Net import *
 from utils.Dataset import *
@@ -103,7 +107,7 @@ if __name__ == '__main__':
 
             L_rec = torch.sum(0.5 * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
 
-            loss = L_id*4. + L_chg*1.5 + L_rec*30.0
+            loss = L_id*3. + L_chg*1.5 + L_rec*20.0
             with amp.scale_loss(loss, opt) as scaled_loss:
                 scaled_loss.backward()
 
