@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
             L_rec = torch.sum(0.5 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
 
-            lossG = 1.*L_adv + 10.*L_attr + 16.*L_id + 10.*L_rec
+            lossG = 1.*L_adv + 10.*L_attr + 20.*L_id + 12.*L_rec
             # lossG = 1*L_adv + 10*L_attr + 5*L_id + 10*L_rec
             with amp.scale_loss(lossG, opt_G) as scaled_loss:
                 scaled_loss.backward()
