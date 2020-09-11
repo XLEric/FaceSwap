@@ -20,7 +20,7 @@ import visdom
 
 if __name__ == '__main__':
     # vis = visdom.Visdom(server='127.0.0.1', env='faceshifter', port=8099)
-    batch_size = 12
+    batch_size = 32
     lr = 4e-4
     max_epoch = 2000
     show_step = 10
@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     G = AEI_Net(c_id=512).to(device)
     G.eval()
-    G.load_state_dict(torch.load('./saved_models/G_latest.pth', map_location=torch.device('cpu')), strict=True)
+    G.load_state_dict(torch.load('./saved_models/G_latest-e.pth', map_location=torch.device('cpu')), strict=True)
 
     net = HearNet()
     net.train()
@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     dataset = AugmentedOcclusions('./hearnet_data',
                                   ['./ego_hands_png'],
-                                  ['./shapenet_png'], same_prob=0.5)
+                                  ['./shapenet_png'], same_prob=0.45)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, drop_last=True)
 
     MSE = torch.nn.MSELoss()
@@ -106,9 +106,10 @@ if __name__ == '__main__':
 
             L_chg = L1(Yst_hat, Yst)
 
-            L_rec = torch.sum(0.5 * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
+#             L_rec = torch.sum(1. * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
+            L_rec = torch.sum(1. * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1)) / (batch_size)
 
-            loss = L_id*3. + L_chg*1.5 + L_rec*20.0
+            loss = L_id*3. + L_chg*2. + L_rec*100.0
             with amp.scale_loss(loss, opt) as scaled_loss:
                 scaled_loss.backward()
 
@@ -125,5 +126,7 @@ if __name__ == '__main__':
             print(f'epoch: {epoch}    {iteration} / {len(dataloader)}')
             print(f'loss: {loss.item()} batch_time: {batch_time}s')
             print(f'L_id: {L_id.item()} L_chg: {L_chg.item()} L_rec: {L_rec.item()}')
-            if iteration % 100 == 0:
+            if iteration % 500 == 0:
                 torch.save(net.state_dict(), './saved_models/HEAR_latest.pth')
+                
+        torch.save(net.state_dict(), './saved_models/HEAR_epoch_{}.pth'.format(epoch))
