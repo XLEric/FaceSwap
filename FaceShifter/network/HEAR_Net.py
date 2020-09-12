@@ -5,7 +5,7 @@ from torch import nn
 def conv4x4(in_c, out_c):
     return nn.Sequential(
         nn.Conv2d(in_c, out_c,kernel_size=4, stride=2, padding=1),
-        nn.BatchNorm2d(out_c),
+        nn.BatchNorm2d(out_c,affine=True),
         nn.LeakyReLU(0.1, inplace=True),
     )
 
@@ -13,7 +13,7 @@ def conv4x4(in_c, out_c):
 def deconv4x4(in_c, out_c):
     return nn.Sequential(
         nn.ConvTranspose2d(in_c, out_c, kernel_size=4, stride=2, padding=1),
-        nn.BatchNorm2d(out_c),
+        nn.BatchNorm2d(out_c,affine=True),
         nn.LeakyReLU(0.1, inplace=True),
     )
 
@@ -32,6 +32,9 @@ class HearNet(nn.Module):
         self.up3 = deconv4x4(256*2, 128)
         self.up4 = deconv4x4(128*2, 64)
         self.up5 = nn.Conv2d(64*2, 3, kernel_size=3, stride=1, padding=1)
+#         self.dropout0 = nn.Dropout(0.9)
+        self.dropout1 = nn.Dropout(0.95)
+#         self.dropout2 = nn.Dropout(0.9)
 
     def forward(self, x):
         c1 = self.down1(x)
@@ -44,11 +47,15 @@ class HearNet(nn.Module):
         m1 = torch.cat((c4, m1), dim=1)
         m2 = self.up2(m1)
         m2 = torch.cat((c3, m2), dim=1)
+
         m3 = self.up3(m2)
         m3 = torch.cat((c2, m3), dim=1)
+        
         m4 = self.up4(m3)
+        m4 = self.dropout1(m4)
         m4 = torch.cat((c1, m4), dim=1)
 
         out = nn.functional.interpolate(m4, scale_factor=2, mode='bilinear', align_corners=True)
         out = self.up5(out)
+        
         return torch.tanh(out)

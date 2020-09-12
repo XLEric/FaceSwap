@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     dataset = AugmentedOcclusions('./hearnet_data',
                                   ['./ego_hands_png'],
-                                  ['./shapenet_png'], same_prob=0.45)
+                                  ['./shapenet_png'], same_prob=0.4)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, drop_last=True)
 
     MSE = torch.nn.MSELoss()
@@ -107,9 +107,17 @@ if __name__ == '__main__':
             L_chg = L1(Yst_hat, Yst)
 
 #             L_rec = torch.sum(1. * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
-            L_rec = torch.sum(1. * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1)) / (batch_size)
+#             L_rec = torch.sum(1. * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1)) / (batch_size)
+#             L_rec = torch.sum(1. * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)\
+#             + torch.sum(0.6 * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / ((same_person.lt(1.)).sum() + 1e-6)
+    
+            L_rec_same = torch.sum(1. * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
+            L_rec_diff = torch.sum(0.85 * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / ((same_person.lt(1.)).sum() + 1e-6)
+            L_rec = L_rec_same + L_rec_diff
+            
+            print('L_rec_same : {:8},L_rec_diff : {:8}'.format(L_rec_same,L_rec_diff))
 
-            loss = L_id*3. + L_chg*2. + L_rec*100.0
+            loss = L_id*50. + L_chg*25. + L_rec*600.0
             with amp.scale_loss(loss, opt) as scaled_loss:
                 scaled_loss.backward()
 
@@ -118,7 +126,11 @@ if __name__ == '__main__':
 
             batch_time = time.time() - start_time
             if iteration % show_step == 0:
-                image = make_image(Xs, Xt, Yst)
+                net.eval()
+                Yst_s = net(hear_input)
+                
+                net.train()
+                image = make_image(Xs, Xt, Yst_s)
                 # vis.image(image, opts={'title': 'HEAR'}, win='HEAR')
                 image = image.transpose([1,2,0])[:,:,::-1]
                 image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
