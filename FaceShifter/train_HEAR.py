@@ -112,12 +112,12 @@ if __name__ == '__main__':
 #             + torch.sum(0.6 * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / ((same_person.lt(1.)).sum() + 1e-6)
     
             L_rec_same = torch.sum(1. * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
-            L_rec_diff = torch.sum(0.85 * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / ((same_person.lt(1.)).sum() + 1e-6)
+            L_rec_diff = torch.sum(2.5 * torch.mean(torch.pow(Yst - Xt, 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / ((same_person.lt(1.)).sum() + 1e-6)
             L_rec = L_rec_same + L_rec_diff
             
             print('L_rec_same : {:8},L_rec_diff : {:8}'.format(L_rec_same,L_rec_diff))
 
-            loss = L_id*50. + L_chg*25. + L_rec*600.0
+            loss = L_id*50. + L_chg*20. + L_rec*300.0
             with amp.scale_loss(loss, opt) as scaled_loss:
                 scaled_loss.backward()
 
@@ -138,7 +138,7 @@ if __name__ == '__main__':
             print(f'epoch: {epoch}    {iteration} / {len(dataloader)}')
             print(f'loss: {loss.item()} batch_time: {batch_time}s')
             print(f'L_id: {L_id.item()} L_chg: {L_chg.item()} L_rec: {L_rec.item()}')
-            if iteration % 500 == 0:
+            if iteration % 250 == 0:
                 torch.save(net.state_dict(), './saved_models/HEAR_latest.pth')
                 
         torch.save(net.state_dict(), './saved_models/HEAR_epoch_{}.pth'.format(epoch))

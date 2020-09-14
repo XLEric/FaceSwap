@@ -33,7 +33,7 @@ class HearNet(nn.Module):
         self.up4 = deconv4x4(128*2, 64)
         self.up5 = nn.Conv2d(64*2, 3, kernel_size=3, stride=1, padding=1)
 #         self.dropout0 = nn.Dropout(0.9)
-        self.dropout1 = nn.Dropout(0.95)
+        self.dropout1 = nn.Dropout(0.5)
 #         self.dropout2 = nn.Dropout(0.9)
 
     def forward(self, x):
