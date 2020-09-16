@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     dataset = AugmentedOcclusions('./hearnet_data',
                                   ['./ego_hands_png'],
-                                  ['./shapenet_png'], same_prob=0.4)
+                                  ['./shapenet_png'], same_prob=0.3)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, drop_last=True)
 
     MSE = torch.nn.MSELoss()
@@ -117,7 +117,7 @@ if __name__ == '__main__':
             
             print('L_rec_same : {:8},L_rec_diff : {:8}'.format(L_rec_same,L_rec_diff))
 
-            loss = L_id*50. + L_chg*20. + L_rec*300.0
+            loss = L_id*50. + L_chg*20. + L_rec*20.0
             with amp.scale_loss(loss, opt) as scaled_loss:
                 scaled_loss.backward()
 
