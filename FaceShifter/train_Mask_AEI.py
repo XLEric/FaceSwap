@@ -1,6 +1,6 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 from network.AEI_Net import *
 from network.MultiscaleDiscriminator import *
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     ])
     print('\n/************************/\n')
     #------------------------------------
-    batch_size = 2
+    batch_size = 8
     lr_G = 4e-4
     lr_D = 4e-4
     max_epoch = 2000
@@ -276,7 +276,7 @@ if __name__ == '__main__':
             if iteration % show_step == 0:
                 image = make_image(Xs, Xt, Y)
                 # vis.image(image[::-1, :, :], opts={'title': 'result'}, win='result')
-                cv2.imwrite('./gen_images/latest.jpg', (image*255).transpose([1,2,0]).astype(np.uint8))
+                cv2.imwrite('./gen_images/latest_AEI_mask.jpg', (image*255).transpose([1,2,0]).astype(np.uint8))
             print(f'epoch: {epoch}    {iteration} / {len(dataloader)}')
             print(f'lossD: {lossD.item()}    lossG: {lossG.item()} batch_time: {batch_time}s')
             print(f'L_adv: {L_adv.item()} L_id: {L_id.item()} L_attr: {L_attr.item()} L_rec: {L_rec.item()}')
