@@ -109,6 +109,10 @@ def create_mask(X_,str_w,vis = False):
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
             face_hair_mask = cv2.dilate(face_hair_mask, kernel)
             face_hair_mask = face_hair_mask * np.expand_dims(heatmap1,axis =2)
+            
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+            face_mask = cv2.dilate(face_mask, kernel)
+            
             face_mask = face_mask * np.expand_dims(heatmap2,axis =2)
             face_hair_mask = np.minimum(1.,face_hair_mask[:,:,:])
             face_mask = np.minimum(1.,face_mask[:,:,:])
