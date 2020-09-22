@@ -120,7 +120,7 @@ def create_mask(X_,str_w,vis = False):
             face_hair_mask = np.minimum(1.,face_hair_mask[:,:,:])
             face_mask = np.minimum(1.,face_mask[:,:,:])
             
-            hair = cv2.dilate(hair, kernel)
+#             hair = cv2.dilate(hair, kernel)
             
             hair = np.minimum(1.,hair[:,:,:])
             
