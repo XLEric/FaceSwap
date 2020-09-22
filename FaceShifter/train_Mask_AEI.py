@@ -1,6 +1,6 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 from network.AEI_Net import *
 from network.MultiscaleDiscriminator import *
@@ -70,7 +70,6 @@ def create_mask(X_,str_w,vis = False):
     heatmap2 = CenterGaussianHeatMap(width, height, cx, cy, 350)
     face_hair_mask_list = []
     face_mask_list = []
-    hair_list = []
     with torch.no_grad():
         Xt_0 = F.interpolate(X_, [512, 512], mode='bilinear', align_corners=True)
         Xt_0 = Xt_0.cpu().numpy()
@@ -110,46 +109,36 @@ def create_mask(X_,str_w,vis = False):
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
             face_hair_mask = cv2.dilate(face_hair_mask, kernel)
             face_hair_mask = face_hair_mask * np.expand_dims(heatmap1,axis =2)
-
+            
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
             face_mask = cv2.dilate(face_mask, kernel)
-
+            
             face_mask = face_mask * np.expand_dims(heatmap2,axis =2)
             face_hair_mask = np.minimum(1.,face_hair_mask[:,:,:])
             face_mask = np.minimum(1.,face_mask[:,:,:])
-            hair = cv2.dilate(hair, kernel)
-            hair = np.minimum(1.,hair[:,:,:])
 
             face_hair_mask = cv2.resize(face_hair_mask, (256,256))
             face_mask = cv2.resize(face_mask, (256,256))
-            hair = cv2.resize(hair, (256,256))
             face_hair_mask_list.append(face_hair_mask.transpose(2, 0, 1))
             face_mask_list.append(face_mask.transpose(2, 0, 1))
-            hair_list.append(hair.transpose(2, 0, 1))
             if vis:
                 cv2.namedWindow('face_hair_mask'+str_w,0)
                 cv2.imshow('face_hair_mask'+str_w,face_hair_mask)
                 cv2.namedWindow('face_mask'+str_w,0)
                 cv2.imshow('face_mask'+str_w,face_mask)
-                cv2.namedWindow('hair'+str_w,0)
-                cv2.imshow('hair'+str_w,hair)
                 cv2.waitKey(1)
         #----------------------------
         face_hair_mask_list = np.array(face_hair_mask_list)
         face_hair_mask_list = face_hair_mask_list.astype(np.float32)
         face_mask_list = np.array(face_mask_list)
         face_mask_list = face_mask_list.astype(np.float32)
-        hair_list = np.array(hair_list)
-        hair_list = hair_list.astype(np.float32)
         if vis:
             print('face_hair_mask size : {} ,face_mask size : {}'.format(face_hair_mask_list.shape,face_mask_list.shape))
         face_hair_mask_list = torch.from_numpy(face_hair_mask_list)
         face_hair_mask_list = face_hair_mask_list.cuda()
         face_mask_list = torch.from_numpy(face_mask_list)
         face_mask_list = face_mask_list.cuda()
-        hair_list = torch.from_numpy(hair_list)
-        hair_list = hair_list.cuda()
-    return face_hair_mask_list,face_mask_list,hair_list
+    return face_hair_mask_list,face_mask_list
 
 if __name__ == '__main__':
     #------------------------------------
@@ -162,7 +151,6 @@ if __name__ == '__main__':
     print('\n/************************/\n')
     #------------------------------------
     batch_size = 10
-
     lr_G = 4e-4
     lr_D = 4e-4
     max_epoch = 2000
@@ -192,8 +180,8 @@ if __name__ == '__main__':
     D, opt_D = amp.initialize(D, opt_D, opt_level=optim_level)
 
     try:
-        G.load_state_dict(torch.load('./saved_models/G_latest.pth', map_location=torch.device('cpu')), strict=False)
-        D.load_state_dict(torch.load('./saved_models/D_latest.pth', map_location=torch.device('cpu')), strict=False)
+        G.load_state_dict(torch.load('./saved_mask_models/G_latest.pth', map_location=torch.device('cpu')), strict=False)
+        D.load_state_dict(torch.load('./saved_mask_models/D_latest.pth', map_location=torch.device('cpu')), strict=False)
     except Exception as e:
         print(e)
 
@@ -241,24 +229,21 @@ if __name__ == '__main__':
                 L_attr += torch.mean(torch.pow(Xt_attr[i] - Y_attr[i], 2).reshape(batch_size, -1), dim=1).mean()
             L_attr /= 2.0
             #---------------------------------------------------------------------------
-            face_hair_mask_Xt,face_mask_Xt,hair_Xt = create_mask(Xt,'Xt',vis = False)
-            face_hair_mask_Y,face_mask_Y,hair_Y = create_mask(Y,'Y',vis = False)
+            face_hair_mask_Xt,face_mask_Xt = create_mask(Xt,'Xt',vis = False)
+            face_hair_mask_Y,face_mask_Y = create_mask(Y,'Y',vis = False)
             #---------------------------------------------------------------------------
             L_rec = torch.sum(0.5 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
             L_rec2 = torch.sum(0.75 * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
-            L_rec3 = torch.sum(0.85 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
-            L_rec4 = torch.sum(0.99 * torch.mean(torch.pow(torch.mul(Y,hair_Y) - torch.mul(Xt,hair_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
+            L_rec3 = torch.sum(0.95 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
 
             L_rec_diff = torch.sum(0.25 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
             L_rec2_diff = torch.sum(0.35 * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec3_diff = torch.sum(0.5 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec4_diff = torch.sum(0.8 * torch.mean(torch.pow(torch.mul(Y,hair_Y) - torch.mul(Xt,hair_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+            L_rec3_diff = torch.sum(0.45 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
 
-
-            L_rec = L_rec + L_rec2 + L_rec3 + L_rec4 + L_rec_diff + L_rec2_diff + L_rec3_diff + L_rec4_diff
+            L_rec = L_rec + L_rec2 + L_rec3 + L_rec_diff + L_rec2_diff + L_rec3_diff
             print('\n\n')
-            print('---------->>> L_rec L_rec2 L_rec3 L_rec4 loss : ',L_rec.item(),L_rec2.item(),L_rec3.item(),L_rec4.item())
-            print('---------->>> L_rec L_rec2 L_rec3 L_rec4 diff loss : ',L_rec_diff.item(),L_rec2_diff.item(),L_rec3_diff.item(),L_rec4_diff.item())
+            print('---------->>> L_rec L_rec2 L_rec3 loss : ',L_rec.item(),L_rec2.item(),L_rec3.item())
+            print('---------->>> L_rec L_rec2 L_rec3 diff loss : ',L_rec_diff.item(),L_rec2_diff.item(),L_rec3_diff.item())
             print('\n\n')
             # print('Y,Xt : ',Y.size(),Xt.size(),Xt_p.size())
 
