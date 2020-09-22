@@ -150,7 +150,7 @@ if __name__ == '__main__':
     ])
     print('\n/************************/\n')
     #------------------------------------
-    batch_size = 8
+    batch_size = 10
     lr_G = 4e-4
     lr_D = 4e-4
     max_epoch = 2000
@@ -234,11 +234,11 @@ if __name__ == '__main__':
             #---------------------------------------------------------------------------
             L_rec = torch.sum(0.5 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
             L_rec2 = torch.sum(0.75 * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
-            L_rec3 = torch.sum(0.75 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
+            L_rec3 = torch.sum(0.95 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
 
             L_rec_diff = torch.sum(0.25 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec2_diff = torch.sum(0.25 * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec3_diff = torch.sum(0.25 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+            L_rec2_diff = torch.sum(0.35 * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+            L_rec3_diff = torch.sum(0.45 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
 
             L_rec = L_rec + L_rec2 + L_rec3 + L_rec_diff + L_rec2_diff + L_rec3_diff
             print('\n\n')
