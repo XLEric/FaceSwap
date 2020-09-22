@@ -181,13 +181,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
 
-    # if not fine_tune_with_identity:
-        # dataset = FaceEmbed(['../celeb-aligned-256_0.85/', '../ffhq_256_0.85/', '../vgg_256_0.85/', '../stars_256_0.85/'], same_prob=0.5)
-    # else:
-        # dataset = With_Identity('../washed_img/', 0.8)
-    # dataset = FaceEmbed(['../celeb-aligned-256_0.85/', '../ffhq_256_0.85/', '../vgg_256_0.85/', '../stars_256_0.85/'], same_prob=0.8)
-
-    dataset = FaceEmbed(['./Asian_datasets/Asian_kk10/'], same_prob=0.35)
+    dataset = FaceEmbed(['./train_datasets/Foreign-2020-09-06/'], same_prob=0.35)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=True)
 
 
@@ -289,5 +283,5 @@ if __name__ == '__main__':
             # if iteration % 1000 == 0 and iteration>0:
             #     torch.save(G.state_dict(), './saved_models/G_latest.pth')
             #     torch.save(D.state_dict(), './saved_models/D_latest.pth')
-        torch.save(G.state_dict(), './saved_models/G_epoch_{}.pth'.format(epoch))
-        torch.save(D.state_dict(), './saved_models/D_epoch_{}.pth'.format(epoch))
+        torch.save(G.state_dict(), './saved_mask_models/G_epoch_{}.pth'.format(epoch))
+        torch.save(D.state_dict(), './saved_mask_models/D_epoch_{}.pth'.format(epoch))
