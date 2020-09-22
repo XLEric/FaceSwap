@@ -1,6 +1,6 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from network.AEI_Net import *
 from network.MultiscaleDiscriminator import *
@@ -109,10 +109,10 @@ def create_mask(X_,str_w,vis = False):
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
             face_hair_mask = cv2.dilate(face_hair_mask, kernel)
             face_hair_mask = face_hair_mask * np.expand_dims(heatmap1,axis =2)
-            
+
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
             face_mask = cv2.dilate(face_mask, kernel)
-            
+
             face_mask = face_mask * np.expand_dims(heatmap2,axis =2)
             face_hair_mask = np.minimum(1.,face_hair_mask[:,:,:])
             face_mask = np.minimum(1.,face_mask[:,:,:])
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     ])
     print('\n/************************/\n')
     #------------------------------------
-    batch_size = 8
+    batch_size = 2
     lr_G = 4e-4
     lr_D = 4e-4
     max_epoch = 2000
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
 
-    dataset = FaceEmbed(['./train_datasets/Foreign-2020-09-06/'], same_prob=0.35)
+    dataset = FaceEmbed(['./Asian_datasets/Asian_kk10/'], same_prob=0.35)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=True)
 
 
@@ -229,8 +229,8 @@ if __name__ == '__main__':
                 L_attr += torch.mean(torch.pow(Xt_attr[i] - Y_attr[i], 2).reshape(batch_size, -1), dim=1).mean()
             L_attr /= 2.0
             #---------------------------------------------------------------------------
-            face_hair_mask_Xt,face_mask_Xt = create_mask(Xt,'Xt',vis = False)
-            face_hair_mask_Y,face_mask_Y = create_mask(Y,'Y',vis = False)
+            face_hair_mask_Xt,face_mask_Xt = create_mask(Xt,'Xt',vis = True)
+            face_hair_mask_Y,face_mask_Y = create_mask(Y,'Y',vis = True)
             #---------------------------------------------------------------------------
             L_rec = torch.sum(0.5 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
             L_rec2 = torch.sum(0.5 * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
