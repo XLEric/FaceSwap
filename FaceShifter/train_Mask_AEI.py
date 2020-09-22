@@ -284,8 +284,8 @@ if __name__ == '__main__':
             print(f'epoch: {epoch}    {iteration} / {len(dataloader)}')
             print(f'lossD: {lossD.item()}    lossG: {lossG.item()} batch_time: {batch_time}s')
             print(f'L_adv: {L_adv.item()} L_id: {L_id.item()} L_attr: {L_attr.item()} L_rec: {L_rec.item()}')
-            # if iteration % 1000 == 0 and iteration>0:
-            #     torch.save(G.state_dict(), './saved_models/G_latest.pth')
-            #     torch.save(D.state_dict(), './saved_models/D_latest.pth')
+            if iteration % 250 == 0 and iteration>0:
+                torch.save(G.state_dict(), './saved_mask_models/G_latest.pth')
+                torch.save(D.state_dict(), './saved_mask_models/D_latest.pth')
         torch.save(G.state_dict(), './saved_mask_models/G_epoch_{}.pth'.format(epoch))
         torch.save(D.state_dict(), './saved_mask_models/D_epoch_{}.pth'.format(epoch))
