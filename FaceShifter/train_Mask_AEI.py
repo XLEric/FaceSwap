@@ -225,8 +225,8 @@ if __name__ == '__main__':
                 L_attr += torch.mean(torch.pow(Xt_attr[i] - Y_attr[i], 2).reshape(batch_size, -1), dim=1).mean()
             L_attr /= 2.0
             #---------------------------------------------------------------------------
-            face_hair_mask_Xt,face_mask_Xt = create_mask(Xt,'Xt',vis = True)
-            face_hair_mask_Y,face_mask_Y = create_mask(Y,'Y',vis = True)
+            face_hair_mask_Xt,face_mask_Xt = create_mask(Xt,'Xt',vis = False)
+            face_hair_mask_Y,face_mask_Y = create_mask(Y,'Y',vis = False)
             #---------------------------------------------------------------------------
             L_rec = torch.sum(0.5 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
             L_rec2 = torch.sum(0.5 * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
