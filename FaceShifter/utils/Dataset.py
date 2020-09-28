@@ -10,7 +10,7 @@ import cv2
 
 
 class FaceEmbed(TensorDataset):
-    def __init__(self, data_path_list, same_prob=0.8):
+    def __init__(self, data_path_list, same_prob=0.8, Flag_256 = True):
         datasets = []
         # embeds = []
         self.N = []
@@ -24,11 +24,19 @@ class FaceEmbed(TensorDataset):
             #     embeds.append(embed)
         self.datasets = datasets
         # self.embeds = embeds
-        self.transforms = transforms.Compose([
-            transforms.ColorJitter(0.2, 0.2, 0.2, 0.01),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
+        if Flag_256:
+            self.transforms = transforms.Compose([
+                transforms.ColorJitter(0.2, 0.2, 0.2, 0.01),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            ])
+        else:
+            self.transforms = transforms.Compose([
+                transforms.Resize((512,512)),
+                transforms.ColorJitter(0.2, 0.2, 0.2, 0.01),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            ])
 
     def __getitem__(self, item):
         idx = 0

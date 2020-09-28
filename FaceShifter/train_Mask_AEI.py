@@ -1,3 +1,7 @@
+#-*-coding:utf-8-*-
+# date:2020-04-25
+# Author: X.L.Eric
+#function : train for mask
 import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
