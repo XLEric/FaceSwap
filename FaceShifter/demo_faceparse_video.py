@@ -1,7 +1,3 @@
-#-*-coding:utf-8-*-
-# date:2020-04-25
-# Author: X.L.Eric
-#function : inference
 import sys
 sys.path.append('./face_modules/')
 import torch
@@ -40,7 +36,7 @@ if __name__ == '__main__':
     device = torch.device('cuda')
     G = AEI_Net(c_id=512)
     G.eval()
-    G.load_state_dict(torch.load('./saved_mask_models/G_latest_s0.pth', map_location=torch.device('cpu')))
+    G.load_state_dict(torch.load('./saved_mask_models/G_latest_s1.pth', map_location=torch.device('cpu')))
     G = G.cuda()
 
     arcface = Backbone(50, 0.6, 'ir_se').to(device)
@@ -56,7 +52,7 @@ if __name__ == '__main__':
     # Xt_path = './samples/s1.jpg'
 
     Xs_raw = cv2.imread(Xs_path)
-    Xs_raw_r = cv2.resize(Xs_raw, (256,256), interpolation = cv2.INTER_LINEAR)
+    Xs_raw_r = cv2.resize(Xs_raw, (int(200*Xs_raw.shape[1]/Xs_raw.shape[0]),200), interpolation = cv2.INTER_LINEAR)
     print(Xs_raw.shape)
 
     cv2.namedWindow('source',0)
@@ -94,7 +90,7 @@ if __name__ == '__main__':
                 if Xt is None:
                     Xt_raw_w2 = copy.deepcopy(Xt_raw_w)
 
-                    Xt_raw_w2[0:128,0:128,:] = cv2.resize(Xs_raw_r, (128,128), interpolation = cv2.INTER_LINEAR)
+                    Xt_raw_w2[0:Xs_raw_r.shape[0],0:Xs_raw_r.shape[1],:] = Xs_raw_r
                     # cv2.namedWindow('raw',0)
                     # cv2.imshow('raw', Xt_raw_w)
                     # cv2.namedWindow('fusion',0)
@@ -201,7 +197,7 @@ if __name__ == '__main__':
                 #
                 # merge = cv2.resize(merge, (1280,720), interpolation = cv2.INTER_LINEAR)
                 merge = (merge*255).astype(np.uint8)
-                merge[0:128,0:128,:] = cv2.resize(Xs_raw_r, (128,128), interpolation = cv2.INTER_LINEAR)
+                merge[0:Xs_raw_r.shape[0],0:Xs_raw_r.shape[1],:] = Xs_raw_r
                 # cv2.namedWindow('raw',0)
                 # cv2.imshow('raw', Xt_raw_w)
                 # cv2.namedWindow('fusion',0)
