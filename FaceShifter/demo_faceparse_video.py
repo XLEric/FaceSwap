@@ -1,3 +1,5 @@
+# Author: X.L.Eric
+
 import sys
 sys.path.append('./face_modules/')
 import torch
@@ -16,8 +18,120 @@ from model import BiSeNet
 import os
 import torchvision.transforms as transforms
 from tools import *
+#------------------------------
+
+
+import os
+import sys
+import time
+sys.path.append('./')
+import argparse
+import torch
+import torch.backends.cudnn as cudnn
+from models.faceboxes import FaceBoxes
+
+from utils.timer import Timer
+
+from models.resnet import resnet18, resnet34, resnet50, resnet101, resnet152
+from models.mobilenetv2 import MobileNetV2
+from utils.common_utils import *
+from acc_model import acc_model
+
+parser = argparse.ArgumentParser(description='FaceBoxes')
+
 
 if __name__ == '__main__':
+    #-----------------------------------------------
+    parser = argparse.ArgumentParser(description=' FaceBoxes Inferece')
+    # FaceBoxes_epoch_290
+    parser.add_argument('-m', '--detect_model', default='weights_face/Final_FaceBoxes.pth',
+                        type=str, help='Trained state_dict file path to open')
+    parser.add_argument('--GPUS', type=str, default = '0',help = 'GPUS') # GPU选择
+    parser.add_argument('--confidence_threshold', default=0.65, type=float, help='confidence_threshold')
+    parser.add_argument('--top_k', default=200, type=int, help='top_k')
+    parser.add_argument('--nms_threshold', default=0.25, type=float, help='nms_threshold')
+    parser.add_argument('--keep_top_k', default=200, type=int, help='keep_top_k')
+    parser.add_argument('--vis_thres', default=0.65, type=float, help='visualization_threshold')
+    #-----------------------------------------------------------------------------------------
+    parser.add_argument('--landmarks_model', type=str, default = './landmarks_model/resnet50_epoch-2350.pth',
+        help = 'landmarks_model') # 模型路径
+    parser.add_argument('--landmarks_network', type=str, default = 'resnet_50',
+        help = 'model : resnet_18,resnet_34,resnet_50,resnet_101,resnet_152,mobilenetv2') # 模型类型
+    parser.add_argument('--landmarks_num_classes', type=int , default = 196,
+        help = 'landmarks_num_classes') #  分类类别个数
+    parser.add_argument('--landmarks_img_size', type=tuple , default = (256,256),
+        help = 'landmarks_img_size') # 输入landmarks 模型图片尺寸
+    #-----------------------------------------------------------------------------------------
+    parser.add_argument('--force_cpu', type=bool, default = False,
+        help = 'force_cpu') # 前向推断硬件选择
+    parser.add_argument('--max_batch_size', type=int , default = 1,
+        help = 'max_batch_size') #  最大 landmarks - max_batch_size
+
+    parser.add_argument('--test_path', type=str, default = '../chapter_07/video/jk_1.mp4',
+        help = 'test_path') # 测试文件路径
+
+    print('\n/******************* {} ******************/\n'.format(parser.description))
+    #--------------------------------------------------------------------------
+    ops = parser.parse_args()# 解析添加参数
+    #--------------------------------------------------------------------------
+    print('----------------------------------')
+
+    unparsed = vars(ops) # parse_args()方法的返回值为namespace，用vars()内建函数化为字典
+    for key in unparsed.keys():
+        print('{} : {}'.format(key,unparsed[key]))
+    use_cuda = torch.cuda.is_available()
+    os.environ['CUDA_VISIBLE_DEVICES'] = ops.GPUS
+    torch.set_num_threads(1)
+    if use_cuda:
+        cudnn.benchmark = True
+
+    #---------------------------------------------------------------- 构建 landmarks 模型
+    if ops.landmarks_network == 'resnet_18':
+        landmarks_model=resnet18(num_classes=ops.landmarks_num_classes, img_size=ops.landmarks_img_size[0])
+    elif ops.landmarks_network == 'resnet_34':
+        landmarks_model=resnet34(num_classes=ops.landmarks_num_classes, img_size=ops.landmarks_img_size[0])
+    elif ops.landmarks_network == 'resnet_50':
+        landmarks_model=resnet50(num_classes=ops.landmarks_num_classes, img_size=ops.landmarks_img_size[0])
+    elif ops.landmarks_network == 'resnet_101':
+        landmarks_model=resnet101(num_classes=ops.landmarks_num_classes, img_size=ops.landmarks_img_size[0])
+    elif ops.landmarks_network == 'resnet_152':
+        landmarks_model=resnet152(num_classes=ops.landmarks_num_classes, img_size=ops.landmarks_img_size[0])
+    elif ops.landmarks_network == 'mobilenetv2':
+        landmarks_model=MobileNetV2(n_class =ops.landmarks_num_classes, input_size=ops.landmarks_img_size[0])
+    else:
+        print('error no the struct model : {}'.format(ops.model))
+
+    device = torch.device("cuda:0" if use_cuda else "cpu")
+
+
+    # 加载测试模型
+    if os.access(ops.landmarks_model,os.F_OK):# checkpoint
+        # chkpt = torch.load(ops.landmarks_model, map_location=device)
+        # landmarks_model.load_state_dict(chkpt)
+
+        chkpt = torch.load(ops.landmarks_model, map_location=lambda storage, loc: storage)
+        landmarks_model.load_state_dict(chkpt)
+        landmarks_model.eval() # 设置为前向推断模式
+        print('load landmarks model : {}'.format(ops.landmarks_model))
+        print('\n/******************* landmarks model acc  ******************/')
+        acc_model(ops,landmarks_model)
+    landmarks_model = landmarks_model.to(device)
+
+
+    #--------------------------------------------------------------------------- 构建人脸检测模型
+    # detect_model
+    detect_model = FaceBoxes(phase='test', size=None, num_classes=2)    # initialize detector
+    detect_model = load_model(detect_model, ops.detect_model, True)
+    detect_model.eval()
+    print('\n/******************* detect model acc  ******************/')
+    acc_model(ops,detect_model)
+    detect_model = detect_model.to(device)
+
+    print('Finished loading model!')
+    # print(detect_model)
+
+    detect_model = detect_model.to(device)
+    #-----------------------------------------------
     n_classes = 19
     net = BiSeNet(n_classes=n_classes)
     net.cuda()
@@ -58,7 +172,7 @@ if __name__ == '__main__':
     cv2.namedWindow('source',0)
     cv2.imshow('source', Xs_raw)
 
-    video_capture = cv2.VideoCapture('./test_video/zb3.mp4')
+    video_capture = cv2.VideoCapture('./test_video/zb2.mp4')
     # video_capture = cv2.VideoCapture('E:/m_cc/cv_cource/chapter_07/video/rw_4.mp4')
 
 
@@ -68,24 +182,52 @@ if __name__ == '__main__':
     flag_video_start = False
 
     idx = 0
+    Xs0 = None
     while True:
         ret, Xt_raw = video_capture.read()
 
         if ret:
             idx += 1
 
+
             # if idx%2!=0 :
             #     continue
             # Xt_raw = np.rot90(Xt_raw)
             # Xt_raw = cv2.flip(Xt_raw,-1)
             if flag_video_start == False:
-                video_writer = cv2.VideoWriter("./demo/demo_{}.mp4".format(str_time), cv2.VideoWriter_fourcc(*"mp4v"), fps=15, frameSize=(int(Xt_raw.shape[1]*2), int(Xt_raw.shape[0])))
+                video_writer = cv2.VideoWriter("./demo/demo_{}.mp4".format(str_time), cv2.VideoWriter_fourcc(*"mp4v"), fps=25, frameSize=(int(Xt_raw.shape[1]*2), int(Xt_raw.shape[0])))
                 flag_video_start = True
             if 1:
                 Xt_raw_w = copy.deepcopy(Xt_raw)
 
-                Xs = detector.align(Image.fromarray(Xs_raw), crop_size=(256, 256))
-                Xt = detector.align(Image.fromarray(Xt_raw), crop_size=(256, 256))
+                # Xs = detector.align(Image.fromarray(Xs_raw), crop_size=(256, 256))
+                if Xs0 is None:
+                    img_xs_raw = copy.deepcopy(Xs_raw)
+                    fs_landmarks = []
+                    dets = detect_faces(ops,detect_model,img_xs_raw,device)
+                    fs_dets,fs_landmarks = get_faces_batch_landmarks(ops,landmarks_model,dets,img_xs_raw,1.,use_cuda,draw_bbox = False)
+                    Xs0 = detector.align_face_boxes(Image.fromarray(Xs_raw), fs_landmarks,crop_size=(256, 256), vis = False,return_trans_inv=False)
+                Xs = copy.deepcopy(Xs0)
+                # Xt = detector.align(Image.fromarray(Xt_raw), crop_size=(256, 256))
+
+                try:
+                    fs_landmarks = []
+                    img_raw = copy.deepcopy(Xt_raw)
+                    scale_img = 800./float(img_raw.shape[1])
+
+                    img_raw = cv2.resize(img_raw, (int(img_raw.shape[1]*scale_img),int(img_raw.shape[0]*scale_img)), interpolation=cv2.INTER_LINEAR)
+
+                    dets = detect_faces(ops,detect_model,img_raw,device)
+                    fs_dets,fs_landmarks = get_faces_batch_landmarks(ops,landmarks_model,dets,img_raw,scale_img,use_cuda,draw_bbox = True)
+                    Xt = detector.align_face_boxes(Image.fromarray(Xt_raw), fs_landmarks,crop_size=(256, 256), vis = False,return_trans_inv=False)
+
+                    cv2.namedWindow('video',0)
+                    cv2.imshow('video',img_raw)
+                    # cv2.waitKey(1)
+                    # continue
+                except:
+                    print('error ~ detect face')
+                    continue
 
                 if Xt is None:
                     Xt_raw_w2 = copy.deepcopy(Xt_raw_w)
@@ -128,14 +270,20 @@ if __name__ == '__main__':
                     for j in range(256):
                         dist = np.sqrt((i-64)**2 + (j-64)**2)/64
                         dist = np.minimum(dist, 1)
-                        mask[i, j] = 1.-dist/16.99
-                mask = cv2.dilate(mask, None, iterations=20)
+                        mask[i, j] = 1.-dist/20.
+                # mask = cv2.dilate(mask, None, iterations=20)
 
                 #---------------------------------------------------------------
 
                 Xt_img = Image.fromarray(Xt_raw_w)
-
-                Xt, trans_inv = detector.align(Xt_img, crop_size=(256, 256), return_trans_inv=True)
+#
+                # Xt, trans_inv = detector.align(Xt_img, crop_size=(256, 256), vis = True,return_trans_inv=True)
+                #------------------------------------------------
+                # img_raw = copy.deepcopy(Xt_raw_w)
+                # dets = detect_faces(ops,detect_model,img_raw,device)
+                # fs_dets,fs_landmarks = get_faces_batch_landmarks(ops,landmarks_model,dets,img_raw,use_cuda,draw_bbox = False)
+                Xt,trans_inv = detector.align_face_boxes(Xt_img, fs_landmarks,crop_size=(256, 256), vis = False,return_trans_inv=True)
+                #-------------------------------------------------
 
                 Xt = test_transform(Xt)
 
@@ -173,7 +321,7 @@ if __name__ == '__main__':
                     face_hair_mask = vis_parsing_maps(Yt_0, parsing, stride=1, save_im=False, save_path='')
                     if np.sum(face_hair_mask)!=0:
                         mask = mask*face_hair_mask
-                    cv2.imshow('mask_face_output',mask)
+                    # cv2.imshow('mask_face_output',mask)
                     #------------------------------------ 通过人脸分割做掩码 well done
 
 
@@ -183,12 +331,24 @@ if __name__ == '__main__':
 
                     mask_ = np.expand_dims(mask_, 2)
                 #----------------------------------------------------------------------------------
+                if True:
+                    Yt_trans_inv = mask_*Yt_trans_inv + (1.-mask_)*(Xt_raw_w.astype(np.float)/255.)
+                    merge = (Yt_trans_inv*255).astype(np.uint8)
+                else:
+                    print('mask shape :',mask_.shape)
+                    bpsong_mask = np.uint8((mask_[:,:,0] > 0.)*255)
 
-                Yt_trans_inv = mask_*Yt_trans_inv + (1.-mask_)*(Xt_raw_w.astype(np.float)/255.)
-                # Yt_trans_inv = cv2.seamlessClone(Xt_raw_w, Yt_trans_inv,np.where(mask_>0,255,0).astype(np.uint8), (int(Xt_raw_w.shape[1]/2),int(Xt_raw_w.shape[0]/2)), cv2.NORMAL_CLONE)
-                cv2.namedWindow('mask',0)
-                cv2.imshow('mask',mask_)
-                merge = Yt_trans_inv
+                    hs, ws = np.where(bpsong_mask > 0)
+                    hc = int(hs.min() + hs.max()) // 2
+                    wc = int(ws.min() + ws.max()) // 2
+
+                    Yt_trans_inv = cv2.seamlessClone((Yt_trans_inv*255).astype(np.uint8),Xt_raw_w, bpsong_mask, (wc, hc), cv2.NORMAL_CLONE)
+                    for i in range(3):
+                        Yt_trans_inv = cv2.seamlessClone((Yt_trans_inv),Xt_raw_w, bpsong_mask, (wc, hc), cv2.NORMAL_CLONE)
+                    cv2.namedWindow('bpsong_mask',0)
+                    cv2.imshow('bpsong_mask',bpsong_mask)
+
+                    merge = Yt_trans_inv
 
                 #----------------------------------------------------------------------------------
 
@@ -196,7 +356,7 @@ if __name__ == '__main__':
                 # Xt_raw_w = cv2.resize(Xt_raw_w, (1280,720), interpolation = cv2.INTER_LINEAR)
                 #
                 # merge = cv2.resize(merge, (1280,720), interpolation = cv2.INTER_LINEAR)
-                merge = (merge*255).astype(np.uint8)
+
                 merge[0:Xs_raw_r.shape[0],0:Xs_raw_r.shape[1],:] = Xs_raw_r
                 # cv2.namedWindow('raw',0)
                 # cv2.imshow('raw', Xt_raw_w)
@@ -211,6 +371,7 @@ if __name__ == '__main__':
 
                 cv2.namedWindow('fusion',0)
                 cv2.imshow('fusion', img_stack)
+                print('idx-',idx,' ',img_stack.shape)
 
                 if cv2.waitKey(1) == 27:
                     break

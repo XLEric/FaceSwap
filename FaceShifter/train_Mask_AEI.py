@@ -271,7 +271,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
     
-    dataset = FaceEmbed(['./train_datasets/Foreign-2020-09-06/'], same_prob=0.4)
+    dataset = FaceEmbed(['./train_datasets/Foreign-2020-09-06/'], same_prob=0.35)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=True)
 
 
@@ -343,7 +343,7 @@ if __name__ == '__main__':
             
             # print('Y,Xt : ',Y.size(),Xt.size(),Xt_p.size())
 
-            lossG = 1.*L_adv + 10.*L_attr + 13.*L_id + 12.*L_rec
+            lossG = 1.*L_adv + 10.*L_attr + 30.*L_id + 12.*L_rec
             # lossG = 1*L_adv + 10*L_attr + 5*L_id + 10*L_rec
             with amp.scale_loss(lossG, opt_G) as scaled_loss:
                 scaled_loss.backward()

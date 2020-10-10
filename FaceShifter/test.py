@@ -79,9 +79,12 @@ def vis_parsing_maps(im, parsing_anno, stride, save_im=False, save_path=''):
         if pi in [1,2,3,4,5,6,7,8,9,10,11,12,13,14]:
             face_hair_mask[index[0], index[1]] = 1.
             face_mask[index[0], index[1]] = 1.
-        elif pi in [17,18]:
+        elif pi in [17,18,6]:
             hair[index[0], index[1]] = 1.
         #     face_hair_mask[index[0], index[1]] =0.3
+
+    cv2.namedWindow('hair1',0)
+    cv2.imshow('hair1',hair)
 
     height, width = np.shape(face_hair_mask)
     cy, cx = height/2.0, width/2.0
@@ -114,6 +117,8 @@ def vis_parsing_maps(im, parsing_anno, stride, save_im=False, save_path=''):
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         face_hair_mask = cv2.dilate(face_hair_mask, kernel)
         face_hair_mask = face_hair_mask * heatmap1
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        face_mask = cv2.dilate(face_mask, kernel)
         face_mask = face_mask * heatmap2
         face_hair_mask = np.minimum(1.,face_hair_mask[:,:])
         face_mask = np.minimum(1.,face_mask[:,:])
@@ -165,7 +170,7 @@ def evaluate( dspth='./', cp=''):
         for image_path in os.listdir(dspth):
             img = Image.open(osp.join(dspth, image_path))
             image = img.resize((512, 512), Image.BILINEAR)
-            print('--------------->>',image.size)
+            print('--------------->>',image.size,image)
             img = to_tensor(image)
             img = torch.unsqueeze(img, 0)
             img = img.cuda()
