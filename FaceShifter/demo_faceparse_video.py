@@ -135,7 +135,7 @@ if __name__ == '__main__':
     n_classes = 19
     net = BiSeNet(n_classes=n_classes)
     net.cuda()
-    save_pth = './faceparse_model/face_parse_latest.pth'
+    save_pth = './faceparse_model/face_parse_latest2.pth'
     print('model : {}'.format(save_pth))
     net.load_state_dict(torch.load(save_pth))
     net.eval()

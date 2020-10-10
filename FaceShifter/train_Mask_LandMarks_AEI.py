@@ -285,7 +285,7 @@ def get_landmarks_mask(batch_size):
 if __name__ == '__main__':
     #------------------------------------
     print('\n/************************/\n')
-    model_faceparse = create_faceparse_model('./faceparse_model/face_parse_latest.pth')
+    model_faceparse = create_faceparse_model('./faceparse_model/face_parse_latest2.pth')
     to_tensor = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
@@ -295,7 +295,7 @@ if __name__ == '__main__':
     landmarks_model = create_landmarks_model('./landmarks_model/resnet50_epoch-2350.pth')
     #------------------------------------
     vis_landmarks = False
-    batch_size = 8
+    batch_size = 10
 
     lr_G = 4e-4
     lr_D = 4e-4
@@ -431,7 +431,7 @@ if __name__ == '__main__':
 
 
             L_rec_diff = torch.sum(0.25 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec2_diff = torch.sum(0.25 * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+            L_rec2_diff = torch.sum(8. * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
             L_rec3_diff = torch.sum(0.02 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
             L_rec4_diff = torch.sum(3. * torch.mean(torch.pow(torch.mul(Y,hair_Y) - torch.mul(Xt,hair_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
             L_rec5_diff = 0. #torch.sum(0.2* torch.mean(torch.pow(torch.mul(Y,edge_Y) - torch.mul(Xt,edge_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
@@ -447,7 +447,7 @@ if __name__ == '__main__':
 
             # print('Y,Xt : ',Y.size(),Xt.size(),Xt_p.size())
 
-            lossG = 1.*L_adv + 10.*L_attr + 30.*L_id + 12.*L_rec + L_landmarks
+            lossG = 1.*L_adv + 10.*L_attr + 23.*L_id + 10.*L_rec + L_landmarks
             # lossG = 1*L_adv + 10*L_attr + 5*L_id + 10*L_rec
             with amp.scale_loss(lossG, opt_G) as scaled_loss:
                 scaled_loss.backward()
