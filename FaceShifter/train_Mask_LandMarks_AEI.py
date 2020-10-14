@@ -85,6 +85,7 @@ def create_mask(X_,str_w,vis = False):
     hair_list = []
     face_edge_list = []
     background_list = []
+    only_face_list = []
     with torch.no_grad():
         Xt_0 = F.interpolate(X_, [512, 512], mode='bilinear', align_corners=True)
         Xt_0 = Xt_0.cpu().numpy()
@@ -108,6 +109,7 @@ def create_mask(X_,str_w,vis = False):
             face_hair_mask = np.zeros((parsing.shape[0], parsing.shape[1],3))
             face_mask = np.zeros((parsing.shape[0], parsing.shape[1],3))
             hair = np.zeros((parsing.shape[0], parsing.shape[1],3))
+            only_face = np.zeros((parsing.shape[0], parsing.shape[1],3))
             num_of_class = np.max(parsing)
 
             for pi in range(1, num_of_class + 1):
@@ -119,6 +121,9 @@ def create_mask(X_,str_w,vis = False):
                     face_mask[index[0], index[1]] = 1.
                 elif pi in [17,18,6]:
                     hair[index[0], index[1]] = 1.
+                #
+                if pi in [1,6,7,8,9,14]:
+                    only_face[index[0], index[1]] = 1.
 
             face_hair_mask = hair + face_hair_mask
             #----------- 背景掩码
@@ -148,6 +153,9 @@ def create_mask(X_,str_w,vis = False):
             kernel = np.ones((5, 5), np.uint8)
 
             face_hair_mask = cv2.resize(face_hair_mask, (256,256))
+            
+            only_face = cv2.resize(only_face, (256,256))
+#             only_face = cv2.erode(only_face, np.ones((5, 5), np.uint8)) # 执行腐蚀操作
 #             face_hair_mask = cv2.erode(face_hair_mask, kernel) # 执行腐蚀操作
 #             for k in range(2):
 #                 face_hair_mask = cv2.blur(face_hair_mask,(7,7))
@@ -185,6 +193,7 @@ def create_mask(X_,str_w,vis = False):
             hair_list.append(hair.transpose(2, 0, 1))
             face_edge_list.append(face_edge_dilate.transpose(2, 0, 1))
             background_list.append(background.transpose(2, 0, 1))
+            only_face_list.append(only_face.transpose(2, 0, 1))
             if vis:
                 cv2.namedWindow('face_hair_mask'+str_w,0)
                 cv2.imshow('face_hair_mask'+str_w,face_hair_mask)
@@ -192,6 +201,8 @@ def create_mask(X_,str_w,vis = False):
                 cv2.imshow('face_mask'+str_w,face_mask)
                 cv2.namedWindow('hair'+str_w,0)
                 cv2.imshow('hair'+str_w,hair)
+                cv2.namedWindow('only_face'+str_w,0)
+                cv2.imshow('only_face'+str_w,only_face)
                 cv2.waitKey(1)
         #----------------------------
         face_hair_mask_list = np.array(face_hair_mask_list)
@@ -204,6 +215,8 @@ def create_mask(X_,str_w,vis = False):
         face_edge_list = face_edge_list.astype(np.float32)
         background_list = np.array(background_list)
         background_list = background_list.astype(np.float32)
+        only_face_list = np.array(only_face_list)
+        only_face_list = only_face_list.astype(np.float32)
 
         if vis:
             print('face_hair_mask size : {} ,face_mask size : {}'.format(face_hair_mask_list.shape,face_mask_list.shape))
@@ -217,6 +230,10 @@ def create_mask(X_,str_w,vis = False):
         face_edge_list = face_edge_list.cuda()
         background_list = torch.from_numpy(background_list)
         background_list = background_list.cuda()
+        only_face_list = torch.from_numpy(only_face_list)
+        only_face_list = only_face_list.cuda()
+        
+        
 
 
         face_hair_mask_list.requires_grad = False
@@ -224,8 +241,9 @@ def create_mask(X_,str_w,vis = False):
         hair_list.requires_grad = False
         face_edge_list.requires_grad = False
         background_list.requires_grad = False
+        only_face_list.requires_grad = False
 
-    return face_hair_mask_list,face_mask_list,hair_list,face_edge_list,background_list
+    return face_hair_mask_list,face_mask_list,hair_list,face_edge_list,background_list,only_face_list
 
 def create_landmarks_model(landmarks_model_path,landmarks_network= 'resnet_50',landmarks_num_classes = 196,landmarks_img_size=256):
     use_cuda = torch.cuda.is_available()
@@ -300,7 +318,7 @@ if __name__ == '__main__':
     lr_G = 4e-4
     lr_D = 4e-4
     max_epoch = 2000
-    show_step = 5
+    show_step = 3
     save_epoch = 1
     model_save_path = './saved_models/'
     optim_level = 'O0'
@@ -315,12 +333,12 @@ if __name__ == '__main__':
     G.train()
     D.train()
 
-    arcface = Backbone(50, 0.6, 'ir_se').to(device)
+    arcface = Backbone(50, 0.65, 'ir_se').to(device)
     arcface.eval()
     arcface.load_state_dict(torch.load('./id_model/model_ir_se50.pth', map_location=device), strict=False)
-
-    opt_G = optim.Adam(G.parameters(), lr=lr_G, betas=(0, 0.999))
-    opt_D = optim.Adam(D.parameters(), lr=lr_D, betas=(0, 0.999))
+    # weight_decay (float, optional)：权重衰减(如L2惩罚)(默认: 0)
+    opt_G = optim.Adam(G.parameters(), lr=lr_G, betas=(0, 0.999),weight_decay = 1e-5)
+    opt_D = optim.Adam(D.parameters(), lr=lr_D, betas=(0, 0.999),weight_decay = 1e-8)
 
     G, opt_G = amp.initialize(G, opt_G, opt_level=optim_level)
     D, opt_D = amp.initialize(D, opt_D, opt_level=optim_level)
@@ -337,7 +355,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
 
-    dataset = FaceEmbed(['./train_datasets/Foreign-2020-09-06/'], same_prob=0.35)
+    dataset = FaceEmbed(['./train_datasets/Foreign-2020-09-06/'], same_prob=0.3)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=True)
 
 
@@ -392,10 +410,16 @@ if __name__ == '__main__':
             landmarks_mask = get_landmarks_mask(batch_size)
             # print('landmarks_Xt size : ',landmarks_Xt.size())
             # print('landmarks_mask size : ',landmarks_mask.size())
-            L_landmarks_same = torch.sum(20000. * torch.mean(torch.pow((landmarks_Xt - landmarks_Y)*landmarks_mask, 2).reshape(batch_size, -1), dim=1)* same_person)/ (same_person.sum() + 1e-6)
-            L_landmarks_diff = torch.sum(20000. * torch.mean(torch.pow((landmarks_Xt - landmarks_Y)*landmarks_mask, 2).reshape(batch_size, -1), dim=1)* same_person.lt(1.))/ (same_person.lt(1.).sum() + 1e-6)
+            if True:
+                L_landmarks_pattern = 'ABS'
+                L_landmarks_same = torch.sum(250. * torch.mean(torch.abs((landmarks_Xt - landmarks_Y)*landmarks_mask).reshape(batch_size, -1), dim=1)* same_person)/ (same_person.sum() + 1e-6)
+                L_landmarks_diff = torch.sum(300. * torch.mean(torch.abs((landmarks_Xt - landmarks_Y)*landmarks_mask).reshape(batch_size, -1), dim=1)* same_person.lt(1.))/ (same_person.lt(1.).sum() + 1e-6)
+            else:
+                L_landmarks_pattern = 'POW'
+                L_landmarks_same = torch.sum(25000. * torch.mean(torch.pow((landmarks_Xt - landmarks_Y)*landmarks_mask, 2).reshape(batch_size, -1), dim=1)* same_person)/ (same_person.sum() + 1e-6)
+                L_landmarks_diff = torch.sum(30000. * torch.mean(torch.pow((landmarks_Xt - landmarks_Y)*landmarks_mask, 2).reshape(batch_size, -1), dim=1)* same_person.lt(1.))/ (same_person.lt(1.).sum() + 1e-6)
             L_landmarks = L_landmarks_diff + L_landmarks_same
-            print('loss_landmarks : ',L_landmarks.item())
+            print(' --->>> --->>> Pattern : {} loss_landmarks : {}'.format(L_landmarks_pattern,L_landmarks.item()))
             if vis_landmarks:
                 output_Xt = landmarks_Xt.cpu().detach().numpy()
                 output_Y = landmarks_Y.cpu().detach().numpy()
@@ -417,8 +441,8 @@ if __name__ == '__main__':
                 cv2.imshow('landmarks_Xt_s',Xt_landmarks_s)
                 cv2.imshow('Y_landmarks_s',Y_landmarks_s)
             #--------------------------------------------------------------------------- face mask
-            face_hair_mask_Xt,face_mask_Xt,hair_Xt,edge_Xt,bg_Xt = create_mask(Xt,'Xt',vis = False)
-            face_hair_mask_Y,face_mask_Y,hair_Y,edge_Y,bg_Y = create_mask(Y,'Y',vis = False)
+            face_hair_mask_Xt,face_mask_Xt,hair_Xt,edge_Xt,bg_Xt,only_face_Xt = create_mask(Xt,'Xt',vis = False)
+            face_hair_mask_Y,face_mask_Y,hair_Y,edge_Y,bg_Y,only_face_Yt = create_mask(Y,'Y',vis = False)
 
 
             #---------------------------------------------------------------------------
@@ -428,26 +452,33 @@ if __name__ == '__main__':
             L_rec4 = torch.sum(60. * torch.mean(torch.pow(torch.mul(Y,hair_Y) - torch.mul(Xt,hair_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
             L_rec5 = torch.sum(50. * torch.mean(torch.pow(torch.mul(Y,edge_Y) - torch.mul(Xt,edge_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
             L_rec6 = torch.sum(8. * torch.mean(torch.pow(torch.mul(Y,bg_Y) - torch.mul(Xt,bg_Xt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
-
+            L_rec7 = torch.sum(300. * torch.mean(torch.pow(torch.mul(torch.mul(Y,only_face_Xt),only_face_Yt) - torch.mul(torch.mul(Xt,only_face_Xt),only_face_Yt), 2).reshape(batch_size, -1), dim=1) * same_person) / (same_person.sum() + 1e-6)
 
             L_rec_diff = torch.sum(0.25 * torch.mean(torch.pow(Y - Xt, 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec2_diff = torch.sum(8. * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec3_diff = torch.sum(0.02 * torch.mean(torch.pow(torch.mul(Y,face_mask_Y) - torch.mul(Xt,face_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec4_diff = torch.sum(3. * torch.mean(torch.pow(torch.mul(Y,hair_Y) - torch.mul(Xt,hair_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec5_diff = 0. #torch.sum(0.2* torch.mean(torch.pow(torch.mul(Y,edge_Y) - torch.mul(Xt,edge_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
-            L_rec6_diff = torch.sum(8. * torch.mean(torch.pow(torch.mul(Y,bg_Y) - torch.mul(Xt,bg_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+            L_rec2_diff = torch.sum(1. * torch.mean(torch.pow(torch.mul(Y,face_hair_mask_Y) - torch.mul(Xt,face_hair_mask_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+            mask_reg = ((face_mask_Y+face_mask_Xt)>0.).float()
+            L_rec3_diff = torch.sum(0.8* torch.mean(torch.pow(torch.mul(Y,mask_reg) - torch.mul(Xt,mask_reg), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+            
+            mask_reg = ((hair_Y+hair_Xt)>0.).float()
+            L_rec4_diff = torch.sum(8.5 * torch.mean(torch.pow(torch.mul(Y,mask_reg) - torch.mul(Xt,mask_reg), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+            
+            mask_reg = ((edge_Y+edge_Xt)>0.).float()
+            L_rec5_diff = torch.sum(0.25* torch.mean(torch.pow(torch.mul(Y,mask_reg) - torch.mul(Xt,mask_reg), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+            L_rec6_diff = torch.sum(6. * torch.mean(torch.pow(torch.mul(Y,bg_Y) - torch.mul(Xt,bg_Xt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
+
+            L_rec7_diff = torch.sum(15. * torch.mean(torch.pow(torch.mul(torch.mul(Y,only_face_Xt),only_face_Yt) - torch.mul(torch.mul(Xt,only_face_Xt),only_face_Yt), 2).reshape(batch_size, -1), dim=1) * same_person.lt(1.)) / (same_person.lt(1.).sum() + 1e-6)
 
 
             print('\n\n')
-            print('---------->>> L_rec L_rec2 L_rec3 L_rec4 L_rec5 L_rec6 loss : ',L_rec.item(),L_rec2.item(),L_rec3.item(),L_rec4.item(),L_rec5.item(),L_rec6.item())
-            print('---------->>> L_rec L_rec2 L_rec3 L_rec4 L_rec5 L_rec6 diff loss : ',L_rec_diff.item(),L_rec2_diff.item(),L_rec3_diff.item(),L_rec4_diff.item(),0.,L_rec6_diff.item())
+            print('---------->>> L_rec L_rec2 L_rec3 L_rec4 L_rec5 L_rec6 L_rec7 loss : ',L_rec.item(),L_rec2.item(),L_rec3.item(),L_rec4.item(),L_rec5.item(),L_rec6.item(),L_rec7.item())
+            print('---------->>> L_rec L_rec2 L_rec3 L_rec4 L_rec5 L_rec6 L_rec7_diff diff loss : ',L_rec_diff.item(),L_rec2_diff.item(),L_rec3_diff.item(),L_rec4_diff.item(),0.,L_rec6_diff.item(),L_rec7_diff.item())
             print('\n\n')
-            L_rec = L_rec + L_rec2 + L_rec3 + L_rec4 + L_rec5 +L_rec6 \
-            + L_rec_diff + L_rec2_diff + L_rec3_diff + L_rec4_diff + L_rec5_diff + L_rec6_diff
+            L_rec = L_rec + L_rec2 + L_rec3 + L_rec4 + L_rec5 +L_rec6+ L_rec7 \
+            + L_rec_diff + L_rec2_diff + L_rec3_diff + L_rec4_diff + L_rec5_diff + L_rec6_diff + L_rec7_diff
 
             # print('Y,Xt : ',Y.size(),Xt.size(),Xt_p.size())
 
-            lossG = 1.*L_adv + 10.*L_attr + 23.*L_id + 10.*L_rec + L_landmarks
+            lossG = 1.*L_adv + 10.*L_attr + 32.723*L_id + 8.*L_rec + L_landmarks
             # lossG = 1*L_adv + 10*L_attr + 5*L_id + 10*L_rec
             with amp.scale_loss(lossG, opt_G) as scaled_loss:
                 scaled_loss.backward()
@@ -470,7 +501,7 @@ if __name__ == '__main__':
                 loss_true += hinge_loss(di[0], True)
             # true_score2 = D(Xt)[-1][0]
 
-            lossD = 0.5*(2.*loss_true.mean() + 2.*loss_fake.mean())
+            lossD = 1.1*(1.*loss_true.mean() + 1.1*loss_fake.mean())
 
             with amp.scale_loss(lossD, opt_D) as scaled_loss:
                 scaled_loss.backward()
@@ -484,7 +515,8 @@ if __name__ == '__main__':
             print(f'epoch: {epoch}    {iteration} / {len(dataloader)}')
             print(f'lossD: {lossD.item()}    lossG: {lossG.item()} batch_time: {batch_time}s')
             print(f'L_adv: {L_adv.item()} L_id: {L_id.item()} L_attr: {L_attr.item()} L_rec: {L_rec.item()}')
-            if iteration % 200 == 0 and iteration>0:
+            
+            if ((iteration % 100) == 0) and (iteration > 0):
                 torch.save(G.state_dict(), './saved_mask_landmarks_models/G_latest.pth')
                 torch.save(D.state_dict(), './saved_mask_landmarks_models/D_latest.pth')
         torch.save(G.state_dict(), './saved_mask_landmarks_models/G_epoch_{}.pth'.format(epoch))
